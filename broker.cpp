@@ -54,9 +54,9 @@ const char* getenvOrDefault(const char* env, const char* def) {
   return ret;
 }
 
-void makeNonblocking(int fd) {
+void setNonBlocking(int fd) {
   int flags = fcntl(fd, F_GETFL, 0);
-  if ( (flags | O_NONBLOCK) != O_NONBLOCK ) {
+  if ( (flags & O_NONBLOCK) != O_NONBLOCK ) {
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
   }
   errno = 0;
@@ -70,10 +70,8 @@ int broker_ipc::start() {
   if ( pipe(err) == -1 ) return errno;
   fd_max = FD_WRITE(err) + 1;
 
-  if ( is_nonblocking ) {
-    makeNonblocking(FD_READ(out));
-    makeNonblocking(FD_READ(err));
-  }
+  setNonBlocking(FD_READ(out));
+  setNonBlocking(FD_READ(err));
 
   pid = fork();
   if ( pid == -1 ) return errno;
@@ -114,9 +112,10 @@ struct tv_timeout {
     timeout -= (tv_sec - tv.tv_sec) * 1000;
     // Decrease carry-over-micros
     micros += tv_usec - tv.tv_usec;
-    if ( micros > 1000000 ) {
-      timeout -= 1;
-      micros = 0;
+    // 1000 micros = 1 millis
+    if ( micros > 1000 ) {
+      timeout -= micros/1000;
+      micros = micros%1000;
     }
 
     // reset for next iteration
@@ -174,12 +173,14 @@ int broker_ipc::read_from() {
 
   if ( timeout.expired() && returncode == -1 ) {
     kill(pid, SIGKILL);
-    errno = 0;
+    status = errno = ETIME;
   }
 
+  int prev_errno = errno;
   close(FD_WRITE(in));
   close(FD_READ(out));
   close(FD_READ(err));
+  errno = prev_errno;
 
   return status;
 }

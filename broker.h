@@ -9,7 +9,6 @@ struct broker_ipc {
 
   int64_t timeout_ms = 30000;
   int returncode = -1;
-  bool is_nonblocking = true;
   int pid;
   int in[2];
   int out[2];
