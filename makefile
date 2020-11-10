@@ -8,7 +8,7 @@ all: setup build/subp
 setup:
 - mkdir -p build
 
-build/subp: subp.cpp 
+build/subp: subp.cpp broker.cpp
 - g++ --std=c++17 -DDEBUG_ON -o $@ $^
 
 clean:
